@@ -1,58 +1,56 @@
-{
-  chart: {
-    type: 'column',
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    style: { fontFamily: 'Inter, sans-serif' }
+looker.plugins.visualizations.add({
+  id: "bar_click_filter",
+  label: "Bar Chart Click Filter",
+  options: {},
+  create: function(element, config) {
+    // Cria o container do gráfico
+    element.innerHTML = `<div id="chartContainer" style="width:100%; height:100%;"></div>`;
   },
 
-  colors: ['#2E86DE', '#10ac84', '#feca57', '#ff6b6b'],
-
-  plotOptions: {
-    column: {
-      borderRadius: 8,                 // 🔵 Arredonda pontas
-      borderWidth: 0,
-      groupPadding: 0.15,
-      pointPadding: 0.1,
-      shadow: {
-        color: 'rgba(0,0,0,0.08)',     // 🌫️ Sombra leve
-        offsetX: 1,
-        offsetY: 2,
-        opacity: 0.1
-      },
-      states: { hover: { brightness: 0.08 } },
-      animation: { duration: 900, easing: 'easeOutCubic' }
-    },
-    series: {
-      dataLabels: {
-        enabled: true,
-        format: '{point.y:.1f}',
-        style: { color: '#333', fontWeight: '600', textOutline: 'none' }
-      }
+  updateAsync: function(data, element, config, queryResponse, details, done) {
+    // Garante que há dados
+    if (!data || !data.length) {
+      element.innerHTML = "<p>Nenhum dado disponível.</p>";
+      done();
+      return;
     }
-  },
 
-  tooltip: {
-    shared: true,
-    borderRadius: 6,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    style: { color: '#fff', fontSize: '12px' }
-  },
+    // Pega o primeiro campo de dimensão e medida
+    const dim = queryResponse.fields.dimension_like[0].name;
+    const measure = queryResponse.fields.measure_like[0].name;
 
-  legend: {
-    align: 'center',
-    verticalAlign: 'bottom',
-    itemStyle: { color: '#444', fontWeight: '500' }
-  },
+    // Extrai os dados para o gráfico
+    const categories = data.map(d => d[dim].value);
+    const values = data.map(d => d[measure].value);
 
-  xAxis: {
-    lineColor: '#ddd',
-    labels: { style: { color: '#666', fontWeight: '500' } }
-  },
+    // Renderiza com Highcharts (disponível no ambiente do Looker)
+    Highcharts.chart("chartContainer", {
+      chart: { type: "column", backgroundColor: "transparent" },
+      title: { text: null },
+      xAxis: { categories },
+      yAxis: { title: { text: null } },
+      plotOptions: {
+        column: {
+          borderRadius: 8,
+          cursor: 'pointer',
+          point: {
+            events: {
+              click: function() {
+                // 🔥 Ação de filtro ao clicar
+                LookerCharts.Utils.toggleCrossfilter(dim, this.category);
+              }
+            }
+          }
+        }
+      },
+      series: [{
+        name: measure,
+        data: values,
+        colorByPoint: true
+      }],
+      credits: { enabled: false }
+    });
 
-  yAxis: {
-    gridLineColor: '#eee',
-    title: { text: null },
-    labels: { style: { color: '#666' } }
+    done();
   }
-}
+});
